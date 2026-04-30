@@ -20,12 +20,9 @@ import {
   MessageCircle,
   CheckCircle2,
   Lock,
-  Wallet,
   Scale,
-  Briefcase,
   PlusCircle,
   Zap,
-  FileText,
   User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -322,7 +319,7 @@ const ServiceGroup: React.FC<ServiceGroupProps> = ({ category, onSelectService, 
 };
 
 function HomePage() {
-  const [expandedId, setExpandedId] = useState<string | null>('gestao');
+  const [expandedId, setExpandedId] = useState<string | null>('score');
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
 
   useEffect(() => {
@@ -380,334 +377,92 @@ function HomePage() {
 
   const categories: Category[] = [
     {
-      id: 'gestao',
-      title: 'Gestão de MEI (Abertura/Baixa)',
-      icon: <Wallet className="h-5 w-5" />,
-      items: [
-        {
-          name: 'ABRIR MEI',
-          price: 107.00,
-          tag: 'Mais Procurado',
-          fields: [
-            { label: 'Nome completo', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
-            { label: 'Atividades (CNAEs)', type: 'textarea', placeholder: 'Descreva as atividades que irá realizar' },
-          ]
-        },
-        {
-          name: 'BAIXA MEI',
-          price: 109.00,
-          fields: [
-            { label: 'Nome completo', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'CNPJ MEI', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
-          ]
-        },
-        {
-          name: 'ALTERAR MEI',
-          price: 89.90,
-          fields: [
-            { label: 'Nome completo', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
-            { label: 'Atividade para alterar (CNAEs)', type: 'textarea', placeholder: 'Quais atividades deseja alterar?' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'fiscais',
-      title: 'Serviços Fiscais',
-      icon: <FileText className="h-5 w-5" />,
-      items: [
-        {
-          name: 'NOTA FISCAL',
-          price: 72.00,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'Info', type: 'text', info: 'Entraremos em contato para pedir os dados da Nota' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'obrigacoes',
-      title: 'Obrigações e Impostos',
-      icon: <Scale className="h-5 w-5" />,
-      items: [
-        {
-          name: 'REGULARIZE MEI',
-          price: 102.00,
-          urgentNotice: 'Comunicado: MEI irregular após 31/03 pode ter o CNPJ cancelado e dívida transferida para o CPF. REGULARIZE AGORA.',
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'DATA DE NASCIMENTO', type: 'date' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Opcional - TÍTULO DE ELEITOR', type: 'text', placeholder: 'Número do título', optional: true },
-          ]
-        },
-        {
-          name: 'DECLARAÇÃO MEI',
-          price: 107.00,
-          urgentNotice: 'Atenção: O prazo para a declaração anual encerra em breve. Evite multas e cancelamento do seu MEI.',
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            {
-              label: 'QUAL TIPO DE SERVIÇO',
-              type: 'select',
-              options: ['Consultar declaração', 'Recibo da declaração', 'Emitir 2 via da declaração já apresentada']
-            },
-          ]
-        },
-        {
-          name: 'BOLETO DAS MEI',
-          price: 49.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-          ]
-        },
-        {
-          name: 'PARCELAMENTO MEI',
-          price: 107.00,
-          urgentNotice: 'Aviso: Parcelamentos em atraso podem ser rescindidos pela Receita Federal. Regularize suas parcelas.',
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'DATA DE NASCIMENTO', type: 'date' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Opcional - TÍTULO DE ELEITOR', type: 'text', placeholder: 'Número do título', optional: true },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'documentos',
-      title: 'Documentos e Certidões',
-      icon: <Briefcase className="h-5 w-5" />,
-      items: [
-        {
-          name: 'CERTIFICADO MEI - CCMEI',
-          price: 57.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-          ]
-        },
-        {
-          name: 'ALVARÁ DE LICENÇA DE FUNCIONAMENTO',
-          price: 169.00,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-          ]
-        },
-        {
-          name: 'CARTÃO CNPJ MEI',
-          price: 55.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'consultas',
-      title: 'Consultas e Pesquisas',
-      icon: <Search className="h-5 w-5" />,
-      items: [
-        {
-          name: 'CONSULTAR PENDÊNCIAS',
-          price: 62.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'DATA DE NASCIMENTO', type: 'date' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Opcional - TÍTULO DE ELEITOR', type: 'text', placeholder: 'Número do título', optional: true },
-          ]
-        },
-        {
-          name: 'CONSULTAR BAIXA MEI',
-          price: 68.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-          ]
-        },
-        {
-          name: 'BUSCAR MEI PELO CPF',
-          price: 52.90,
-          fields: [
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
-          ]
-        },
-        {
-          name: 'SITUAÇÃO MEI',
-          price: 58.90,
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'DATA DE NASCIMENTO', type: 'date' },
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'Nome da mãe', type: 'text', placeholder: 'Nome completo da mãe' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'credito',
-      title: 'Crédito e Financiamento',
-      icon: <CreditCard className="h-5 w-5" />,
-      items: [
-        {
-          name: 'Crédito PJ',
-          price: 149.00,
-          tag: 'Entrega Rápida',
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'VALOR DESEJADO', type: 'text', placeholder: 'R$ 0,00' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'juridico',
-      title: 'Jurídico e Regularização',
-      icon: <Scale className="h-5 w-5" />,
-      items: [
-        {
-          name: 'Limpa Nome Judicial',
-          price: 299.00,
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-          ]
-        },
-      ]
-    },
-    {
-      id: 'auditoria',
-      title: 'AUDITORIA JURÍDICA ESPECIALIZADA',
-      description: 'Qual tipo de contrato você quer blindar?',
+      id: 'score',
+      title: 'Suspensão de Dívidas + Restauração de Score',
+      description: 'Em todos os Bureaus de Crédito — CPF/CNPJ',
       icon: <ShieldCheck className="h-5 w-5" />,
       items: [
         {
-          name: 'Financiamento de Veículo',
-          subtitle: 'Juros abusivos, Busca e Apreensão, Taxas Ocultas',
-          price: 197.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
+          name: 'Suspensão de Dívidas + Restauração de Score',
+          subtitle: 'Em todos os Bureaus de Crédito — CPF/CNPJ',
+          price: 800.00,
+          tag: 'Mais Procurado',
           fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
             { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Juros abusivos', 'Busca e Apreensão', 'Taxas Ocultas'] },
-          ]
-        },
-        {
-          name: 'Arrematação em Leilão',
-          subtitle: 'Edital, Matrícula, Dívidas Ocultas',
-          price: 247.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Edital', 'Matrícula', 'Dívidas Ocultas'] },
-          ]
-        },
-        {
-          name: 'Aluguel & Imobiliário',
-          subtitle: 'Multa de rescisão, Reajuste IGP-M, Despejo',
-          price: 187.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Multa de rescisão', 'Reajuste IGP-M', 'Despejo'] },
-          ]
-        },
-        {
-          name: 'Empréstimo Bancário & Consignado',
-          subtitle: 'Superendividamento, RMC, Venda Casada',
-          price: 197.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Superendividamento', 'RMC', 'Venda Casada'] },
-          ]
-        },
-        {
-          name: 'Empresarial & Contrato Social',
-          subtitle: 'Blindagem de Sócios, Saída, Responsabilidade',
-          price: 297.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Blindagem de Sócios', 'Saída', 'Responsabilidade'] },
-          ]
-        },
-        {
-          name: 'Prestação de Serviços',
-          subtitle: 'Riscos trabalhistas, Não pagamento, Prazos',
-          price: 157.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'TIPO DE PROBLEMA', type: 'select', options: ['Riscos trabalhistas', 'Não pagamento', 'Prazos'] },
-          ]
-        },
-        {
-          name: 'Outros Contratos',
-          subtitle: 'Consulta Jurídica Genérica',
-          price: 127.00,
-          urgentNotice: 'Selecione a categoria do seu documento para uma análise de precisão máxima baseada no STJ e Bacen.',
-          fields: [
-            { label: 'CPF/CNPJ', type: 'text', placeholder: '000.000.000-00' },
-            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-            { label: 'DESCRIÇÃO DO CONTRATO', type: 'textarea', placeholder: 'Descreva brevemente o contrato' },
+            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
+            { label: 'DATA DE NASCIMENTO', type: 'date' },
+            { label: 'ENDEREÇO', type: 'text', placeholder: 'Rua, Número, Bairro, Cidade - UF' },
+            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
+            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
           ]
         },
       ]
     },
     {
-      id: 'consultoria',
-      title: 'Consultoria e Gestão',
-      icon: <Briefcase className="h-5 w-5" />,
+      id: 'rating',
+      title: 'Atualização de Rating Bancário',
+      description: 'CPF/CNPJ',
+      icon: <CreditCard className="h-5 w-5" />,
       items: [
         {
-          name: 'Aumento de Score',
-          price: 127.00,
-          tag: 'Entrega Rápida',
+          name: 'Atualização de Rating Bancário CPF/CNPJ',
+          subtitle: 'Reposicionamento junto aos bancos e instituições financeiras',
+          price: 1500.00,
+          tag: 'Premium',
           fields: [
-            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
             { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
-          ]
-        },
-        {
-          name: 'Atualização de Rating',
-          price: 137.00,
-          tag: 'Entrega Rápida',
-          fields: [
-            { label: 'CNPJ', type: 'text', placeholder: '00.000.000/0001-00' },
-            { label: 'NOME DA EMPRESA', type: 'text', placeholder: 'Razão Social' },
+            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
+            { label: 'DATA DE NASCIMENTO', type: 'date' },
+            { label: 'ENDEREÇO', type: 'text', placeholder: 'Rua, Número, Bairro, Cidade - UF' },
+            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
+            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
           ]
         },
       ]
     },
-
+    {
+      id: 'bacen',
+      title: 'Exclusão de Vencidos e Prejuízos BACEN',
+      description: 'Dos últimos 5 anos — BACEN JUDICIAL',
+      icon: <Scale className="h-5 w-5" />,
+      items: [
+        {
+          name: 'Exclusão de Vencidos e Prejuízos BACEN',
+          subtitle: 'Dos últimos 5 ANOS (BACEN JUDICIAL)',
+          price: 3500.00,
+          tag: 'Judicial',
+          urgentNotice: 'Este serviço requer documentação completa. Certifique-se de ter em mãos: Comprovante de Endereço (últimos 3 meses), Documento Pessoal com foto, e Relatório Registrato do Banco Central dos últimos 5 anos (emitido pelo GOV.BR).',
+          fields: [
+            { label: 'NOME COMPLETO', type: 'text', placeholder: 'Seu nome completo' },
+            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
+            { label: 'DATA DE NASCIMENTO', type: 'date' },
+            { label: 'ENDEREÇO', type: 'text', placeholder: 'Rua, Número, Bairro, Cidade - UF' },
+            { label: 'EMAIL', type: 'email', placeholder: 'seu@email.com' },
+            { label: 'Telefone / WhatsApp', type: 'tel', placeholder: '(00) 00000-0000' },
+            { label: 'FOTO COMPROVANTE DE ENDEREÇO (ÚLTIMOS 3 MESES)', type: 'text', info: 'Envie a foto do comprovante de endereço via WhatsApp após a solicitação' },
+            { label: 'FOTO DOCUMENTO PESSOAL', type: 'text', info: 'Envie a foto do documento pessoal (RG/CNH) via WhatsApp após a solicitação' },
+            { label: 'RELATÓRIO REGISTRATO BANCO CENTRAL (ÚLTIMOS 5 ANOS)', type: 'text', info: 'Emitido pelo GOV.BR — Envie via WhatsApp após a solicitação' },
+          ]
+        },
+      ]
+    },
+    {
+      id: 'raiox',
+      title: 'Diagnóstico de Crédito',
+      description: 'Análise completa do seu perfil financeiro',
+      icon: <Search className="h-5 w-5" />,
+      items: [
+        {
+          name: 'RAIO-X 360º CPF/CNPJ',
+          subtitle: 'Diagnóstico completo do seu perfil de crédito',
+          price: 99.90,
+          tag: 'Entrega Rápida',
+          fields: [
+            { label: 'CPF', type: 'text', placeholder: '000.000.000-00' },
+          ]
+        },
+      ]
+    },
   ];
 
   const handleSelectService = (service: ServiceItem, categoryTitle: string) => {
