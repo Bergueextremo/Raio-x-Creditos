@@ -18,166 +18,316 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+const APPMAX_BASE_URL = process.env.APPMAX_BASE_URL || "https://admin.appmax.com.br/api/v3";
+const APPMAX_ACCESS_TOKEN = process.env.APPMAX_ACCESS_TOKEN;
+const APPMAX_SOFT_DESCRIPTOR = (process.env.APPMAX_SOFT_DESCRIPTOR || "BERGUE").slice(0, 13);
+
 console.log("Environment check:");
-console.log("KIWIFY_CLIENT_ID:", process.env.KIWIFY_CLIENT_ID ? "LOADED" : "MISSING");
-console.log("KIWIFY_CLIENT_SECRET:", process.env.KIWIFY_CLIENT_SECRET ? "LOADED" : "MISSING");
-console.log("KIWIFY_ACCOUNT_ID:", process.env.KIWIFY_ACCOUNT_ID ? "LOADED" : "MISSING");
+console.log("APPMAX_BASE_URL:", APPMAX_BASE_URL);
+console.log("APPMAX_ACCESS_TOKEN:", APPMAX_ACCESS_TOKEN ? "LOADED" : "MISSING");
 
-// Kiwify Config
-const KIWIFY_BASE_URL = "https://public-api.kiwify.com";
-const CLIENT_ID = process.env.KIWIFY_CLIENT_ID;
-const CLIENT_SECRET = process.env.KIWIFY_CLIENT_SECRET;
-const ACCOUNT_ID = process.env.KIWIFY_ACCOUNT_ID;
-
-let cachedToken: string | null = null;
-let tokenExpiry: number = 0;
-
-async function getKiwifyToken() {
-  const now = Date.now();
-  if (cachedToken && now < tokenExpiry) {
-    return cachedToken;
-  }
-
-  console.log("Fetching new Kiwify token...");
-
-  try {
-    // Kiwify public API expects client_id and client_secret
-    // Try providing them in a way that matches what we did in curl
-    const response = await axios({
-      method: 'post',
-      url: `${KIWIFY_BASE_URL}/v1/oauth/token`,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      data: `client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}`
-    });
-
-    if (response.data && response.data.access_token) {
-      cachedToken = response.data.access_token;
-      tokenExpiry = now + (response.data.expires_in || 86400) * 1000;
-      console.log("Kiwify token retrieved successfully.");
-      return cachedToken;
-    } else {
-      throw new Error(`Unexpected response structure: ${JSON.stringify(response.data)}`);
-    }
-  } catch (error: any) {
-    const errorDetail = error.response?.data || error.message;
-    console.error("Kiwify Authentication Error Detail:", JSON.stringify(errorDetail));
-
-    // One more try with JSON if urlencoded failed (some SDKs/proxies change this)
-    try {
-      console.log("Retrying with JSON payload...");
-      const jsonResponse = await axios.post(`${KIWIFY_BASE_URL}/v1/oauth/token`, {
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET
-      });
-      if (jsonResponse.data?.access_token) {
-        cachedToken = jsonResponse.data.access_token;
-        tokenExpiry = now + (jsonResponse.data.expires_in || 86400) * 1000;
-        return cachedToken;
-      }
-    } catch (innerError: any) {
-      console.error("Kiwify JSON Retry failed too.");
-    }
-
-    throw new Error(`Failed to authenticate with Kiwify API. Details: ${JSON.stringify(errorDetail)}`);
-  }
-}
-
-async function getKiwifyProducts() {
-  try {
-    const token = await getKiwifyToken();
-    if (!token) return [];
-
-    console.log("Fetching products from Kiwify...");
-    const response = await axios({
-      method: "get",
-      url: `${KIWIFY_BASE_URL}/v1/products`,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "x-kiwify-account-id": ACCOUNT_ID,
-      },
-    });
-
-    const products = Array.isArray(response.data) ? response.data : (response.data.data || []);
-    console.log(`Found ${products.length} products in Kiwify account.`);
-    return products;
-  } catch (error: any) {
-    console.error("Error fetching Kiwify products:", error.response?.data || error.message);
-    return [];
-  }
-}
-
-// Map service names to Kiwify Checkout IDs/Links (Manual Fallback)
-const CHECKOUT_LINKS: Record<string, string> = {
-  "ABRIR MEI": "https://pay.kiwify.com.br/AbC1234",
-  "BAIXA MEI": "https://pay.kiwify.com.br/DeF5678",
-  "ALTERAR MEI": "https://pay.kiwify.com.br/GhI9012",
-  "default": "https://pay.kiwify.com.br/configurar_no_server_ts"
+type AppmaxCustomerInput = {
+  name?: string;
+  email?: string;
+  document?: string;
+  phone?: string;
 };
 
+type AppmaxServiceInput = {
+  name?: string;
+  price?: number;
+};
+
+type AppmaxCardInput = {
+  name?: string;
+  number?: string;
+  cvv?: string;
+  month?: string | number;
+  year?: string | number;
+  installments?: string | number;
+};
+
+function requireAppmaxToken() {
+  if (!APPMAX_ACCESS_TOKEN) {
+    throw new Error("APPMAX_ACCESS_TOKEN nao configurado no .env");
+  }
+
+  return APPMAX_ACCESS_TOKEN;
+}
+
+function cleanDigits(value = "") {
+  return String(value).replace(/\D/g, "");
+}
+
+function splitName(name = "Cliente") {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const firstname = parts.shift() || "Cliente";
+  const lastname = parts.length ? parts.join(" ") : firstname;
+
+  return { firstname, lastname };
+}
+
+function getClientIp(req: express.Request) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.length) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return req.ip || req.socket.remoteAddress || "127.0.0.1";
+}
+
+function appmaxPayload(data: Record<string, unknown>) {
+  return {
+    "access-token": requireAppmaxToken(),
+    ...data,
+  };
+}
+
+function extractId(data: any, keys: string[]) {
+  for (const key of keys) {
+    if (data?.[key]) return data[key];
+    if (data?.data?.[key]) return data.data[key];
+  }
+
+  return null;
+}
+
+function extractPixData(data: any) {
+  const candidates = [
+    data,
+    data?.data,
+    data?.payment,
+    data?.data?.payment,
+    data?.pix,
+    data?.data?.pix,
+  ].filter(Boolean);
+
+  const findValue = (keys: string[]) => {
+    for (const candidate of candidates) {
+      for (const key of keys) {
+        if (candidate?.[key]) return candidate[key];
+      }
+    }
+
+    return null;
+  };
+
+  return {
+    qr_code:
+      findValue(["qr_code", "qrcode", "qrCode", "pix_qr_code", "pix_code", "emv", "copy_paste"]),
+    qr_code_image:
+      findValue(["qr_code_image", "qrcode_image", "qrCodeImage", "pix_qr_code_image", "base64_image"]),
+    transaction_id:
+      findValue(["transaction_id", "payment_id", "id", "hash"]),
+    status: findValue(["status", "payment_status"]),
+  };
+}
+
+async function createAppmaxCustomer(customer: AppmaxCustomerInput, req: express.Request) {
+  const { firstname, lastname } = splitName(customer.name);
+  const phone = cleanDigits(customer.phone);
+
+  const response = await axios.post(
+    `${APPMAX_BASE_URL}/customer`,
+    appmaxPayload({
+      firstname,
+      lastname,
+      email: customer.email || "cliente@regularizedigital.com.br",
+      telephone: phone,
+      ip: getClientIp(req),
+    })
+  );
+
+  const customerId = extractId(response.data, ["customer_id", "id"]);
+  if (!customerId) {
+    throw new Error(`Appmax nao retornou customer_id: ${JSON.stringify(response.data)}`);
+  }
+
+  return { customerId, raw: response.data };
+}
+
+async function createAppmaxOrder(service: AppmaxServiceInput, customerId: number | string) {
+  const productName = service.name || "Servico Regularize Digital";
+  const price = Number(service.price || 0);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("Valor do servico invalido para criar pedido Appmax");
+  }
+
+  const response = await axios.post(
+    `${APPMAX_BASE_URL}/order`,
+    appmaxPayload({
+      products: [
+        {
+          sku: productName.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 100) || "SERVICO",
+          name: productName,
+          qty: 1,
+          price,
+          digital_product: 1,
+        },
+      ],
+      customer_id: customerId,
+      discount: 0,
+      shipping: 0,
+    })
+  );
+
+  const orderId = extractId(response.data, ["order_id", "id"]);
+  if (!orderId) {
+    throw new Error(`Appmax nao retornou order_id: ${JSON.stringify(response.data)}`);
+  }
+
+  return { orderId, raw: response.data };
+}
+
+async function createAppmaxPixPayment(orderId: number | string, customerId: number | string, document: string) {
+  const expirationDate = new Date(Date.now() + 30 * 60 * 1000)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+
+  const response = await axios.post(
+    `${APPMAX_BASE_URL}/payment/pix`,
+    appmaxPayload({
+      cart: {
+        order_id: orderId,
+      },
+      customer: {
+        customer_id: customerId,
+      },
+      payment: {
+        pix: {
+          document_number: cleanDigits(document),
+          expiration_date: expirationDate,
+        },
+      },
+    })
+  );
+
+  return response.data;
+}
+
+async function createAppmaxCreditCardPayment(
+  orderId: number | string,
+  customerId: number | string,
+  document: string,
+  card: AppmaxCardInput
+) {
+  const response = await axios.post(
+    `${APPMAX_BASE_URL}/payment/credit-card`,
+    appmaxPayload({
+      cart: {
+        order_id: orderId,
+      },
+      customer: {
+        customer_id: customerId,
+      },
+      payment: {
+        CreditCard: {
+          number: cleanDigits(card.number),
+          cvv: cleanDigits(card.cvv),
+          month: Number(card.month),
+          year: Number(card.year),
+          document_number: cleanDigits(document),
+          name: card.name,
+          installments: Number(card.installments || 1),
+          soft_descriptor: APPMAX_SOFT_DESCRIPTOR,
+        },
+      },
+    })
+  );
+
+  return response.data;
+}
+
 // API Routes
-app.post("/api/kiwify/create-payment", async (req, res) => {
+app.post("/api/appmax/create-payment", async (req, res) => {
   try {
-    const { service, customer } = req.body;
+    const { service, customer, paymentMethod = "pix" } = req.body as {
+      service?: AppmaxServiceInput;
+      customer?: AppmaxCustomerInput;
+      paymentMethod?: "pix" | "card";
+      card?: AppmaxCardInput;
+    };
 
     if (!service || !customer) {
-      return res.status(400).json({ error: "Missing service or customer data" });
+      return res.status(400).json({ error: "Dados de servico ou cliente ausentes" });
     }
 
-    console.log(`Processing payment request for service: ${service.name}`);
-
-    // 1. Authenticate
-    try {
-      await getKiwifyToken();
-    } catch (tokenError: any) {
-      return res.status(500).json({ error: "Kiwify Authentication Failed", details: tokenError.message });
-    }
-
-    // 2. Try to find the product dynamically in Kiwify
-    let baseUrl = "";
-    const products = await getKiwifyProducts();
-    const matchedProduct = products.find((p: any) =>
-      p.name.trim().toUpperCase() === service.name.trim().toUpperCase() && p.checkout_url
-    );
-
-    if (matchedProduct) {
-      console.log(`Dynamic match found for "${service.name}": ${matchedProduct.checkout_url}`);
-      baseUrl = matchedProduct.checkout_url;
-    } else {
-      console.log(`No dynamic match for "${service.name}". Using manual mapping.`);
-      baseUrl = CHECKOUT_LINKS[service.name] || CHECKOUT_LINKS["default"];
-    }
-
-    // Check if it's still a placeholder
-    if (!baseUrl || baseUrl.includes("placeholder") || baseUrl.includes("configurar_no_server_ts") || baseUrl.includes("AbC1234")) {
+    const document = cleanDigits(customer.document);
+    if (!document) {
       return res.status(400).json({
-        error: "Link do Checkout não encontrado",
-        details: `O serviço "${service.name}" não foi encontrado no seu dashboard da Kiwify (verifique se o nome é idêntico) e também não possui um link manual configurado no server.ts.`
+        error: "Documento obrigatorio",
+        details: "Informe CPF ou CNPJ para gerar o Pix na Appmax.",
       });
     }
 
-    // 3. Construct the prefilled checkout URL
-    const checkoutUrl = new URL(baseUrl);
-    if (customer.name) checkoutUrl.searchParams.append('name', customer.name);
-    if (customer.email) checkoutUrl.searchParams.append('email', customer.email);
+    console.log(`Processing Appmax payment request for service: ${service.name}`);
 
-    const cleanDoc = (customer.document || '').replace(/\D/g, '');
-    if (cleanDoc) checkoutUrl.searchParams.append('cpf_cnpj', cleanDoc);
+    const appmaxCustomer = await createAppmaxCustomer(customer, req);
+    const appmaxOrder = await createAppmaxOrder(service, appmaxCustomer.customerId);
 
-    const cleanPhone = (customer.phone || '').replace(/\D/g, '');
-    if (cleanPhone) checkoutUrl.searchParams.append('phone', cleanPhone);
+    if (paymentMethod === "card") {
+      if (!req.body.card) {
+        return res.status(400).json({
+          error: "Dados do cartao obrigatorios",
+          details: "Informe os dados do cartao para processar o pagamento na Appmax.",
+        });
+      }
 
-    console.log(`Checkout generated for ${service.name}: ${checkoutUrl.toString()}`);
+      const payment = await createAppmaxCreditCardPayment(
+        appmaxOrder.orderId,
+        appmaxCustomer.customerId,
+        document,
+        req.body.card
+      );
+
+      return res.json({
+        success: true,
+        provider: "appmax",
+        payment_method: "card",
+        customer_id: appmaxCustomer.customerId,
+        order_id: appmaxOrder.orderId,
+        payment,
+      });
+    }
+
+    const payment = await createAppmaxPixPayment(appmaxOrder.orderId, appmaxCustomer.customerId, document);
+    const pix = extractPixData(payment);
 
     res.json({
       success: true,
-      checkout_url: checkoutUrl.toString()
+      provider: "appmax",
+      payment_method: "pix",
+      customer_id: appmaxCustomer.customerId,
+      order_id: appmaxOrder.orderId,
+      pix,
+      payment,
     });
   } catch (error: any) {
-    console.error("Payment error:", error.message);
-    res.status(500).json({ error: "Internal Server Error", details: error.message });
+    const details = error.response?.data || error.message;
+    console.error("Appmax payment error:", JSON.stringify(details));
+    res.status(500).json({ error: "Erro ao processar pagamento na Appmax", details });
   }
+});
+
+app.post("/api/appmax/webhook", (req, res) => {
+  const event = req.body?.event || req.query.event || "unknown";
+  const orderId =
+    req.body?.data?.id ||
+    req.body?.data?.order_id ||
+    req.body?.order_id ||
+    req.query.order_id ||
+    null;
+
+  console.log("Appmax webhook received:", JSON.stringify({ event, orderId, body: req.body, query: req.query }));
+
+  res.status(200).json({
+    success: true,
+    provider: "appmax",
+    event,
+    order_id: orderId,
+  });
 });
 
 async function startServer() {

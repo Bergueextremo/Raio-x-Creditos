@@ -23,7 +23,8 @@ import {
   Scale,
   PlusCircle,
   Zap,
-  User
+  User,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginPage from './pages/LoginPage';
@@ -65,6 +66,18 @@ interface Category {
   icon: React.ReactNode;
   items: ServiceItem[];
   isExpanded?: boolean;
+}
+
+interface PaymentResult {
+  order_id?: number | string;
+  payment_method?: 'pix' | 'card';
+  pix?: {
+    qr_code?: string | null;
+    qr_code_image?: string | null;
+    transaction_id?: string | number | null;
+    status?: string | null;
+  };
+  payment?: any;
 }
 
 const clientNames = [
@@ -119,23 +132,38 @@ const Checkout = ({
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [cardData, setCardData] = useState({
+    name: '',
+    number: '',
+    cvv: '',
+    month: '',
+    year: '',
+    installments: '1'
+  });
 
   const handlePayment = async () => {
     setIsLoadingPayment(true);
+    setPaymentResult(null);
     try {
-      const response = await axios.post('/api/kiwify/create-payment', {
+      const response = await axios.post('/api/appmax/create-payment', {
         service,
+        paymentMethod,
         customer: {
           name: formValues['Nome completo'] || formValues['NOME COMPLETO'] || 'Cliente',
           email: formValues['EMAIL'] || 'cliente@exemplo.com',
           document: formValues['CPF'] || formValues['CNPJ'] || formValues['CNPJ MEI'] || formValues['CPF/CNPJ'] || '',
           phone: formValues['Telefone / WhatsApp'] || ''
-        }
+        },
+        ...(paymentMethod === 'card' ? { card: cardData } : {})
       });
 
       if (response.data.checkout_url) {
         window.location.href = response.data.checkout_url;
+        return;
       }
+
+      setPaymentResult(response.data);
     } catch (error: any) {
       console.error('Erro ao processar pagamento:', error);
       const errorMsg = error.response?.data?.details || error.response?.data?.error || 'Erro ao processar o pagamento. Por favor, tente novamente.';
@@ -144,6 +172,12 @@ const Checkout = ({
       setIsLoadingPayment(false);
     }
   };
+
+  const pixCode = paymentResult?.pix?.qr_code;
+  const pixImage = paymentResult?.pix?.qr_code_image;
+  const normalizedPixImage = pixImage && !pixImage.startsWith('data:')
+    ? `data:image/png;base64,${pixImage}`
+    : pixImage;
 
   return (
     <motion.div
@@ -238,6 +272,56 @@ const Checkout = ({
             </button>
           </div>
 
+          {paymentMethod === 'card' && (
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
+              <input
+                value={cardData.name}
+                onChange={(e) => setCardData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome impresso no cartão"
+                className="sm:col-span-2 rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              />
+              <input
+                value={cardData.number}
+                onChange={(e) => setCardData(prev => ({ ...prev, number: e.target.value }))}
+                placeholder="Número do cartão"
+                inputMode="numeric"
+                className="sm:col-span-2 rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              />
+              <input
+                value={cardData.month}
+                onChange={(e) => setCardData(prev => ({ ...prev, month: e.target.value }))}
+                placeholder="Mês"
+                inputMode="numeric"
+                className="rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              />
+              <input
+                value={cardData.year}
+                onChange={(e) => setCardData(prev => ({ ...prev, year: e.target.value }))}
+                placeholder="Ano"
+                inputMode="numeric"
+                className="rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              />
+              <input
+                value={cardData.cvv}
+                onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value }))}
+                placeholder="CVV"
+                inputMode="numeric"
+                className="rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              />
+              <select
+                value={cardData.installments}
+                onChange={(e) => setCardData(prev => ({ ...prev, installments: e.target.value }))}
+                className="rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500"
+              >
+                {Array.from({ length: 12 }, (_, idx) => idx + 1).map((installment) => (
+                  <option key={installment} value={installment}>
+                    {installment}x
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             disabled={isLoadingPayment}
             className={`w-full rounded-xl py-5 text-lg font-black text-white shadow-lg transition-all active:scale-[0.98] ${isLoadingPayment ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#4CAF50] shadow-green-100 hover:bg-green-600'
@@ -246,6 +330,45 @@ const Checkout = ({
           >
             {isLoadingPayment ? 'PROCESSANDO...' : (paymentMethod === 'pix' ? 'GERAR QR CODE PIX' : 'PAGAR COM CARTÃO')}
           </button>
+
+          {paymentResult && (
+            <div className="rounded-xl border border-green-100 bg-green-50 p-4 text-green-900">
+              <div className="mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5" />
+                <p className="text-sm font-black uppercase">
+                  {paymentResult.payment_method === 'pix' ? 'Pix gerado na Appmax' : 'Pagamento enviado para a Appmax'}
+                </p>
+              </div>
+
+              {normalizedPixImage && (
+                <img src={normalizedPixImage} alt="QR Code Pix" className="mx-auto mb-3 h-44 w-44 rounded-lg bg-white p-2" />
+              )}
+
+              {pixCode && (
+                <div className="space-y-2">
+                  <textarea
+                    readOnly
+                    value={pixCode}
+                    className="h-24 w-full resize-none rounded-lg border border-green-200 bg-white p-3 text-xs text-gray-700 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(pixCode)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-black uppercase text-white transition-all hover:bg-green-700"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copiar código Pix
+                  </button>
+                </div>
+              )}
+
+              {!pixCode && paymentResult.payment_method === 'pix' && (
+                <p className="text-sm font-bold">
+                  Pedido #{paymentResult.order_id} criado. Consulte o retorno da Appmax no painel para validar os dados do Pix.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-6 opacity-50 grayscale">
             <img src="https://logodownload.org/wp-content/uploads/2014/07/visa-logo-1.png" alt="Visa" className="h-4 object-contain" referrerPolicy="no-referrer" />
