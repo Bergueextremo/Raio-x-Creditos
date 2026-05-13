@@ -60,6 +60,13 @@ function cleanDigits(value = "") {
   return String(value).replace(/\D/g, "");
 }
 
+function normalizeCardYear(value?: string | number) {
+  const year = Number(value);
+  if (!Number.isFinite(year)) return NaN;
+
+  return year >= 2000 ? year - 2000 : year;
+}
+
 function splitName(name = "Cliente") {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const firstname = parts.shift() || "Cliente";
@@ -219,7 +226,7 @@ async function createAppmaxCreditCardPayment(
           number: cleanDigits(card.number),
           cvv: cleanDigits(card.cvv),
           month: Number(card.month),
-          year: Number(card.year),
+          year: normalizeCardYear(card.year),
           document_number: cleanDigits(document),
           name: card.name,
           installments: Number(card.installments || 1),
@@ -234,6 +241,16 @@ async function createAppmaxCreditCardPayment(
 
 export async function createAppmaxPayment(body: AppmaxPaymentRequest, ip = "127.0.0.1") {
   const { service, customer, paymentMethod = "pix" } = body;
+
+  if (!getAppmaxToken()) {
+    return {
+      status: 503,
+      body: {
+        error: "Appmax sem token",
+        details: "Configure APPMAX_ACCESS_TOKEN nas variaveis de ambiente da Vercel e faca um novo deploy.",
+      },
+    };
+  }
 
   if (!service || !customer) {
     return {
@@ -253,20 +270,49 @@ export async function createAppmaxPayment(body: AppmaxPaymentRequest, ip = "127.
     };
   }
 
-  const appmaxCustomer = await createAppmaxCustomer(customer, ip);
-  const appmaxOrder = await createAppmaxOrder(service, appmaxCustomer.customerId);
+  const phone = cleanDigits(customer.phone);
+  if (phone.length < 10 || phone.length > 11) {
+    return {
+      status: 400,
+      body: {
+        error: "Telefone obrigatorio",
+        details: "Informe um telefone/WhatsApp valido com DDD para criar o cliente na Appmax.",
+      },
+    };
+  }
 
   if (paymentMethod === "card") {
-    if (!body.card) {
+    const card = body.card;
+    const cardNumber = cleanDigits(card?.number);
+    const cvv = cleanDigits(card?.cvv);
+    const month = Number(card?.month);
+    const year = normalizeCardYear(card?.year);
+
+    if (!card || !cardNumber || !cvv || !month || !Number.isFinite(year)) {
       return {
         status: 400,
         body: {
           error: "Dados do cartao obrigatorios",
-          details: "Informe os dados do cartao para processar o pagamento na Appmax.",
+          details: "Preencha numero, nome, validade, CVV e parcelas do cartao.",
         },
       };
     }
 
+    if (cardNumber.length < 13 || cardNumber.length > 19 || cvv.length < 2 || cvv.length > 4 || month < 1 || month > 12) {
+      return {
+        status: 400,
+        body: {
+          error: "Dados do cartao invalidos",
+          details: "Confira numero do cartao, mes de validade e CVV antes de tentar novamente.",
+        },
+      };
+    }
+  }
+
+  const appmaxCustomer = await createAppmaxCustomer(customer, ip);
+  const appmaxOrder = await createAppmaxOrder(service, appmaxCustomer.customerId);
+
+  if (paymentMethod === "card") {
     const payment = await createAppmaxCreditCardPayment(
       appmaxOrder.orderId,
       appmaxCustomer.customerId,
@@ -306,4 +352,12 @@ export async function createAppmaxPayment(body: AppmaxPaymentRequest, ip = "127.
 
 export function formatAppmaxError(error: any) {
   return error.response?.data || error.message || "Erro desconhecido na Appmax";
+}
+
+export function getAppmaxErrorStatus(error: any) {
+  if (error.response?.status) {
+    return error.response.status >= 500 ? 502 : error.response.status;
+  }
+
+  return 500;
 }

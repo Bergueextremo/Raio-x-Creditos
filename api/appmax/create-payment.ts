@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import { createAppmaxPayment, formatAppmaxError } from "../../appmax";
+import { createAppmaxPayment, formatAppmaxError, getAppmaxErrorStatus } from "../../appmax";
 
 function readBody(req: IncomingMessage) {
   return new Promise<any>((resolve, reject) => {
@@ -55,6 +55,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   } catch (error: any) {
     const details = formatAppmaxError(error);
     console.error("Appmax payment error:", JSON.stringify(details));
-    sendJson(res, 500, { error: "Erro ao processar pagamento na Appmax", details });
+    sendJson(res, getAppmaxErrorStatus(error), { error: "Erro ao processar pagamento na Appmax", details });
   }
 }

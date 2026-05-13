@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { createAppmaxPayment, formatAppmaxError, getAppmaxEnvironmentStatus } from "./appmax";
+import { createAppmaxPayment, formatAppmaxError, getAppmaxEnvironmentStatus, getAppmaxErrorStatus } from "./appmax";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,8 +41,18 @@ app.post("/api/appmax/create-payment", async (req, res) => {
   } catch (error: any) {
     const details = formatAppmaxError(error);
     console.error("Appmax payment error:", JSON.stringify(details));
-    res.status(500).json({ error: "Erro ao processar pagamento na Appmax", details });
+    res.status(getAppmaxErrorStatus(error)).json({ error: "Erro ao processar pagamento na Appmax", details });
   }
+});
+
+app.get("/api/appmax/status", (_req, res) => {
+  const status = getAppmaxEnvironmentStatus();
+
+  res.status(status.tokenLoaded ? 200 : 503).json({
+    provider: "appmax",
+    base_url: status.baseUrl,
+    token_loaded: status.tokenLoaded,
+  });
 });
 
 app.post("/api/appmax/webhook", (req, res) => {

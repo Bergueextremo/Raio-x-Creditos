@@ -133,6 +133,7 @@ const Checkout = ({
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [isLoadingPayment, setIsLoadingPayment] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [cardData, setCardData] = useState({
     name: '',
     number: '',
@@ -145,6 +146,7 @@ const Checkout = ({
   const handlePayment = async () => {
     setIsLoadingPayment(true);
     setPaymentResult(null);
+    setPaymentError(null);
     try {
       const response = await axios.post('/api/appmax/create-payment', {
         service,
@@ -166,7 +168,14 @@ const Checkout = ({
       setPaymentResult(response.data);
     } catch (error: any) {
       console.error('Erro ao processar pagamento:', error);
-      const errorMsg = error.response?.data?.details || error.response?.data?.error || 'Erro ao processar o pagamento. Por favor, tente novamente.';
+      const responseData = error.response?.data;
+      const detail = responseData?.details || responseData?.error;
+      const errorMsg = typeof detail === 'string'
+        ? detail
+        : detail
+          ? JSON.stringify(detail)
+          : 'Erro ao processar o pagamento. Por favor, tente novamente.';
+      setPaymentError(errorMsg);
       alert(errorMsg);
     } finally {
       setIsLoadingPayment(false);
@@ -330,6 +339,12 @@ const Checkout = ({
           >
             {isLoadingPayment ? 'PROCESSANDO...' : (paymentMethod === 'pix' ? 'GERAR QR CODE PIX' : 'PAGAR COM CARTÃO')}
           </button>
+
+          {paymentError && (
+            <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-800">
+              {paymentError}
+            </div>
+          )}
 
           {paymentResult && (
             <div className="rounded-xl border border-green-100 bg-green-50 p-4 text-green-900">
