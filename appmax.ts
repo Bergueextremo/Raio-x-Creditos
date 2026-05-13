@@ -113,12 +113,13 @@ function extractPixData(data: any) {
 
   return {
     qr_code:
-      findValue(["qr_code", "qrcode", "qrCode", "pix_qr_code", "pix_code", "emv", "copy_paste"]),
+      findValue(["pix_emv", "qr_code", "qrcode", "qrCode", "pix_qr_code", "pix_code", "emv", "copy_paste"]),
     qr_code_image:
       findValue(["qr_code_image", "qrcode_image", "qrCodeImage", "pix_qr_code_image", "base64_image"]),
     transaction_id:
       findValue(["transaction_id", "payment_id", "id", "hash"]),
     status: findValue(["status", "payment_status"]),
+    expiration_date: findValue(["pix_expiration_date", "expiration_date", "expires_at"]),
   };
 }
 
@@ -335,6 +336,9 @@ export async function createAppmaxPayment(body: AppmaxPaymentRequest, ip = "127.
 
   const payment = await createAppmaxPixPayment(appmaxOrder.orderId, appmaxCustomer.customerId, document);
   const pix = extractPixData(payment);
+  if (pix.qr_code && !pix.qr_code_image) {
+    pix.qr_code_image = `https://gerarqrcodepix.com.br/api/v1?brcode=${encodeURIComponent(pix.qr_code)}&tamanho=256`;
+  }
 
   return {
     status: 200,

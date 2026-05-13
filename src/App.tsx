@@ -184,7 +184,7 @@ const Checkout = ({
 
   const pixCode = paymentResult?.pix?.qr_code;
   const pixImage = paymentResult?.pix?.qr_code_image;
-  const normalizedPixImage = pixImage && !pixImage.startsWith('data:')
+  const normalizedPixImage = pixImage && !pixImage.startsWith('data:') && !pixImage.startsWith('http')
     ? `data:image/png;base64,${pixImage}`
     : pixImage;
 
